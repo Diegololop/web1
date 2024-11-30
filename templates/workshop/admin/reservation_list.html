@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Reservas{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Gestión de Reservas</h1>
+        <a href="{% url 'create_reservation' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Reserva
+        </a>
+    </div>
+
+    <!-- Buscador por fecha -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="date" class="form-label">Buscar reservas por fecha</label>
+                    <input type="date" name="date" id="date" class="form-control" 
+                           value="{{ search_date }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+                {% if search_date %}
+                    <div class="col-md-2">
+                        <a href="{% url 'reservation_list' %}" class="btn btn-secondary w-100">
+                            <i class="fas fa-times"></i> Limpiar
+                        </a>
+                    </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de Reservas -->
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="card-title mb-0">
+                {% if search_date %}
+                    Reservas para {{ search_date|date:"l d/m/Y"|title }}
+                {% else %}
+                    Todas las Reservas
+                {% endif %}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Fecha</th>
+                            <th>Servicios</th>
+                            <th>Duración</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reservation in reservations %}
+                            <tr>
+                                <td>{{ reservation.client.user.get_full_name }}</td>
+                                <td>{{ reservation.service_date|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% for service in reservation.services.all %}
+                                        {{ service.name }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>{{ reservation.total_duration }} min</td>
+                                <td>${{ reservation.total_price|floatformat:0 }}</td>
+                                <td>
+                                    <span class="badge {% if reservation.status == 'pending' %}bg-warning
+                                        {% elif reservation.status == 'confirmed' %}bg-success
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ reservation.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'reservation_edit' reservation.id %}" class="btn btn-sm btn-info" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-danger" title="Cancelar"
+                                                data-reservation-id="{{ reservation.id }}"
+                                                data-client-name="{{ reservation.client.user.get_full_name }}"
+                                                onclick="showCancelModal(this)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="fas fa-calendar fa-2x mb-3"></i>
+                                        <p>No hay reservas registradas para esta fecha.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for cancellation -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Cancelar Reserva</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea cancelar la reserva de <span id="clientName"></span>?</p>
+                <form id="cancelForm" method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger">Confirmar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+function showCancelModal(button) {
+    const reservationId = button.dataset.reservationId;
+    const clientName = button.dataset.clientName;
+    
+    const modal = document.getElementById('cancelModal');
+    const form = modal.querySelector('#cancelForm');
+    const clientNameSpan = modal.querySelector('#clientName');
+    
+    // Actualizar el formulario y el contenido del modal
+    form.action = `{% url 'delete_reservation' pk=0 %}`.replace('0', reservationId);
+    clientNameSpan.textContent = clientName;
+    
+    // Mostrar el modal
+    new bootstrap.Modal(modal).show();
+}
+</script>
+{% endblock %}
+{% endblock %}
